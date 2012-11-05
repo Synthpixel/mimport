@@ -1,0 +1,94 @@
+#!/usr/bin/env ruby
+
+require 'taglib'
+require 'fileutils'
+require 'highline/import'
+require 'terminal-table'
+require 'shellwords'
+
+albums = []
+artists = []
+artist_path_name = ''
+album_new = ''
+# Parse ARGV for directory
+# Fix below to apply to m4a and flac
+# also fix it to error when there aren't any music files inside
+path = ''
+ARGV.each do | arg |
+  path = path + arg
+end
+
+puts 'Adding ' + path
+
+Dir.chdir(path)
+
+rows=[]
+
+Dir.glob('*.{mp3,m4a,flac,aac}').each do |f|
+  TagLib::FileRef.open(f) do |fileref|
+    tag = fileref.tag
+    albums << tag.album
+    artists << tag.artist
+    rows << [tag.artist, tag.album, tag.title]
+  end
+end
+
+table = Terminal::Table.new :headings => ['Artist', 'Album', 'Track title'], 
+                            :rows => rows
+puts table
+
+# Check if all of the artist tags are the same.
+if artists.max == artists.min
+  artist_path_name = artists[0]
+else
+  artist_path_name = ask("Artist path name? ") { |q| q.default = artists[0] }
+end
+
+# Check if all of the album tags are the same.
+if albums.max == albums.min
+  # Prompt for album name with albums[0] as default.
+  album_new = ask("Album name? ") { |q| q.default = albums[0] }
+else
+  album_new = ask("Album name? ")
+end
+
+
+
+# Makedir using the new album name
+# Copy the contents to the new directory
+artist_path = File.join("/Volumes/Odysseus/Music", artist_path_name)
+if not File.exists?(artist_path)
+  Dir.mkdir(artist_path)
+end
+
+album_path = File.join(artist_path, album_new)
+if not File.exists?(album_path)
+  Dir.mkdir(album_path)
+end
+
+
+puts "copying: "
+files = Dir.glob('*')
+files.each do |file| 
+  puts "  " + file
+  FileUtils.cp(file, album_path)
+end
+FileUtils.cp_r files, album_path
+
+Dir.chdir(album_path)
+# run glob on the new directory to change album tag
+Dir.glob('*.{mp3,m4a,flac,aac}').each do |f|
+  TagLib::FileRef.open(f) do |fileref|
+    tag = fileref.tag
+    tag.album = album_new
+    fileref.save
+  end
+  pid = Process.fork
+  if pid.nil?
+    exec %{osascript -e "tell application \\"iTunes\\" to add POSIX file \\"#{album_path}/#{f}\\"" > /dev/null}
+  else
+    Process.detach(pid)
+  end
+end
+
+
