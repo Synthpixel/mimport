@@ -68,7 +68,7 @@ end
 
 
 puts "copying: "
-files = Dir.glob('*')
+files = Dir.glob('*.*')
 files.each do |file| 
   puts "  " + file
   FileUtils.cp(file, album_path)
