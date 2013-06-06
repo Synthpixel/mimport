@@ -83,12 +83,7 @@ Dir.glob('*.{mp3,m4a,flac,aac}').each do |f|
     tag.album = album_new
     fileref.save
   end
-  pid = Process.fork
-  if pid.nil?
-    exec %{osascript -e "tell application \\"iTunes\\" to add POSIX file \\"#{album_path}/#{f}\\"" > /dev/null}
-  else
-    Process.detach(pid)
-  end
+  `osascript -e "tell application \\"iTunes\\" to add POSIX file \\"#{album_path}/#{f}\\""`
 end
 
 
